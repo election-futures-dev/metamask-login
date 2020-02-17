@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <title>MetaMask Login Demo</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .label {
+            margin-top: 30px;
+            margin-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+            max-width: 1000px;
+        }
+    </style>
+
+</head>
+<body>
+
+    <div class="container">
+
+        <button class="btn btn-primary" onclick="buttonClicked()">Login</button>
+
+        <h5 class="label">Result from web3 API</h5>
+
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">Public Address</span>
+            </div>
+            <input id="text-address" type="text" class="form-control" disabled>
+        </div>
+
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">Nonce</span>
+            </div>
+            <input id="text-nonce" type="text" class="form-control" disabled>
+        </div>
+
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">Signature</span>
+            </div>
+            <input id="text-signature" type="text" class="form-control" disabled>
+        </div>
+
+        <h5 class="label">Result from backend server</h5>
+
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">JWT</span>
+            </div>
+            <input id="text-token" type="text" class="form-control" disabled>
+        </div>
+
+    </div>
+
+    <script>
+        var web3;
+
+        function createNonce() {
+
+            var dict = "abcdefghijklmnopqrstuvwxyz0123456789".split("");
+            var result = "";
+
+            for(var i = 0; i < 10; i++) {
+                var rand = Math.floor(Math.random() * 36);
+                result += dict[rand];
+            }
+
+            return result;
+
+        }
+
+        function getAddress() {
+            return new Promise(function(resolve, reject) {
+
+                web3 = new Web3(window.ethereum);
+
+                web3.eth.getCoinbase(function(error, coinbase) {
+
+                    if(!coinbase) window.alert('MetaMask not activated!');
+
+                    var publicAddress = coinbase.toLowerCase();
+                    resolve(publicAddress);
+
+                });
+
+            });
+        }
+
+        function getSignature(publicAddress) {
+            return new Promise(function(resolve, reject) {
+
+                var data = createNonce();
+
+                web3.eth.personal.sign(
+                    data,
+                    publicAddress,
+                    '', // password is ignored by metamask
+                    function(error, signature) {
+
+                        var result = {
+                            address: publicAddress,
+                            nonce: data,
+                            signature: signature
+                        };
+
+                        resolve(result);
+
+                    }
+                );
+
+            });
+        }
+
+        function showWeb3Result(result) {
+
+            document.getElementById('text-address').value = result.address;
+            document.getElementById('text-nonce').value = result.nonce;
+            document.getElementById('text-signature').value = result.signature;
+
+            return result;
+
+        }
+
+        function getToken(result) {
+            return new Promise(function(resolve, reject) {
+
+                axios.post('/api/auth', {
+                    'publicAddress': result.address,
+                    'nonce': result.nonce,
+                    'signature': result.signature
+                }).then(function(response) { resolve(response.data.token); })
+
+            });
+        }
+
+        function showBackendResult(token) {
+
+            document.getElementById('text-token').value = token;
+
+        }
+
+        function buttonClicked() {
+
+            window.ethereum.enable()
+                .then(getAddress)
+                .then(getSignature)
+                .then(showWeb3Result)
+                .then(getToken)
+                .then(showBackendResult);
+
+        }
+    </script>
+
+</body>
+</html>
